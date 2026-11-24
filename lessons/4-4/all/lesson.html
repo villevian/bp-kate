@@ -6,7 +6,7 @@ header h1{margin:0;align-self:center;padding-left:18px;font-weight:500;font-size
 .out1{display:flex;align-items:center;gap:14px;background:#e6e7e8;padding:8px 22px;font-size:15px}.out1 b{background:#e8894a;color:#fff;font-weight:600;padding:3px 10px;border-radius:3px;font-size:13px}
 .wrap{max-width:1000px;margin:0 auto;padding:0 20px}
 details.voc{margin:12px 0 0;border:1.5px solid #e8894a;border-radius:6px}details.voc summary{cursor:pointer;padding:8px 16px;color:#c4642a;font-weight:500}
-.vgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:6px 16px 14px}.vg h4{margin:4px 0 6px;color:#c4642a;font-weight:600;font-size:14px;text-transform:uppercase}.vg span{display:inline-block;background:#fbeadb;border-radius:12px;padding:2px 10px;margin:2px;font-size:14px}
+.vgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:6px 16px 14px}.vg h4{margin:4px 0 6px;color:#c4642a;font-weight:600;font-size:14px;text-transform:uppercase}.vg em.tr{font-style:normal;color:#77787b;font-size:13px}.vg span{display:inline-block;background:#fbeadb;border-radius:12px;padding:2px 10px;margin:2px;font-size:14px}
 .top{display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px}.top a{color:#c4642a;text-decoration:none;font-weight:500;font-size:15px}
 .bar{background:#fbeadb;padding:6px 14px;border-radius:6px;font-size:14.5px}.st.ok{color:#2e7d4f}.st.err{color:#c0392b}
 .tcom{display:none;margin-top:10px;background:#fdf0d5;border-left:4px solid #f2b631;padding:10px 14px;border-radius:4px;font-size:15px;white-space:pre-wrap}.tcom b{display:block;font-weight:600}
@@ -52,8 +52,21 @@ const rpc=(f,b)=>fetch(SB_URL+"/rest/v1/rpc/"+f,{method:"POST",headers:{apikey:S
 const $=id=>document.getElementById(id);let student="",timer=null,submitted=false,ready=false;
 const norm=s=>(s||"").toLowerCase().replace(/[’`]/g,"'").replace(/\s+/g," ").replace(/[.!?]+$/,"").trim();
 const okv=(k,v)=>KEY[k].some(x=>norm(x)===norm(v));
+let CTX=null;
+function _tx(el){const c=el.cloneNode(true);c.querySelectorAll("b.x").forEach(b=>b.append(" "));c.querySelectorAll("b").forEach(b=>{if(/^[A-H]$/.test(b.textContent.trim()))b.append(" ")});return (c.textContent||"").replace(/\s+/g," ").trim()}
+function _prompt(el){
+ const nl=el.closest(".notes");if(nl){const lb=el.previousElementSibling;if(lb&&lb.tagName==="LABEL")return _tx(lb)}
+ const row=el.closest(".row,.tf,.gbr,.fh,.pc,.msg");
+ if(row){const c=row.cloneNode(true);c.querySelectorAll("input,select,textarea").forEach(x=>{if(x.type==="radio"){x.remove();return}x.replaceWith(document.createTextNode(" ___ "))});
+  c.querySelectorAll(".fb,button,.opt,label").forEach(x=>{if(!x.querySelector||!x.querySelector("input"))x.remove()});const t=_tx(c);if(t)return t.slice(0,260)}
+ let p=el.previousElementSibling;for(let i=0;p&&i<4;i++,p=p.previousElementSibling){if(p.matches&&p.matches("p.ins,p,h4,.card")){const t=_tx(p);if(t)return t.slice(0,260)}}
+ return el.placeholder||""}
+function buildCtx(){const c={};let i=0;document.querySelectorAll("section.sec").forEach(sec=>{const nb=document.querySelector('nav button[data-s="'+sec.id+'"]');
+ const ins=sec.querySelector(".ins");const st=((nb?nb.textContent.trim()+" · ":"")+(ins?_tx(ins):"")).slice(0,220);
+ sec.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;if(!k||c[k])return;c[k]={s:st,q:_prompt(el),i:i++}})});
+ c.self={s:"Self-assessment",q:"0–5",i:i++};c.q={s:"Questions for the teacher",q:"",i:i++};return c}
 function collect(){const a={};document.querySelectorAll("input.g[data-k],select.g[data-k],textarea.g[data-k]").forEach(x=>a[x.dataset.k]=x.value);
- document.querySelectorAll("input[type=radio][data-k]:checked").forEach(x=>a[x.dataset.k]=x.value);const s=document.querySelector("#score .on");a.self=s?+s.dataset.v:null;return a}
+ document.querySelectorAll("input[type=radio][data-k]:checked").forEach(x=>a[x.dataset.k]=x.value);const s=document.querySelector("#score .on");a.self=s?+s.dataset.v:null;if(!CTX)CTX=buildCtx();a._ctx=CTX;a._page=location.href.split("?")[0];return a}
 function fill(a){document.querySelectorAll("input.g[data-k],select.g[data-k],textarea.g[data-k]").forEach(x=>{if(a[x.dataset.k]!=null)x.value=a[x.dataset.k]});
  document.querySelectorAll("input[type=radio][data-k]").forEach(x=>x.checked=a[x.dataset.k]===x.value);document.querySelectorAll("#score button").forEach(b=>b.classList.toggle("on",a.self!=null&&+b.dataset.v===a.self));if(window.afterFill)afterFill()}
 function scores(){const a=collect(),r={};for(const k in KEY){const p=k.replace(/_[^_]+$/,"");r[p]=r[p]||[0,0];r[p][1]++;if(a[k]!=null&&okv(k,a[k]))r[p][0]++}const o={};for(const p in r)o[p]=r[p][0]+"/"+r[p][1];return o}
@@ -65,7 +78,7 @@ async function save(){if(!ready)return;local();if(!STUDENT_CODE){status("Templat
 function later(){clearTimeout(timer);timer=setTimeout(save,1200)}
 async function start(){let a=null;if(STUDENT_CODE){try{const r=await rpc("get_my_hw",{p_code:STUDENT_CODE,p_lesson:LESSON});const d=r&&r[0];
  if(d){student=d.name;if(d.answers){a=d.answers;submitted=!!d.submitted;if(submitted)$("done").style.display="block"}if(d.teacher_comment){$("tcomt").textContent=d.teacher_comment;$("tcom").style.display="block"}}}catch(e){}}
- if(!a){try{a=JSON.parse(localStorage.getItem("hw:"+LESSON+":"+(STUDENT_CODE||"preview"))||"null")}catch(e){}}if(a)fill(a);ready=true;
+ if(!a){try{a=JSON.parse(localStorage.getItem("hw:"+LESSON+":"+(STUDENT_CODE||"preview"))||localStorage.getItem("hw:"+LESSON+":preview")||"null")}catch(e){}}if(a)fill(a);ready=true;if(STUDENT_CODE&&a&&!a._ctx)save();
  if(!STUDENT_CODE)status("Template preview — answers are not sent anywhere.");else status(student?(a?"Welcome back, "+student+"! Your answers are loaded.":"Hi, "+student+"! Your answers save automatically."):"Your answers save automatically.","ok")}
 function fbk(k,ok,txt){const f=$("fb_"+k);if(!f)return;f.className="fb show "+(ok?"ok":"no");f.querySelector(".h").innerHTML=txt}
 function chkSet(p){let n=0,t=0;for(const k in KEY){if(k.replace(/_[^_]+$/,"")!==p)continue;const el=document.querySelector(`.g[data-k="${k}"]`);if(!el)continue;t++;const ok=okv(k,el.value);if(ok)n++;
@@ -85,4 +98,4 @@ function say1(t){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t
 if(window.speechSynthesis)speechSynthesis.getVoices();
 const st=document.createElement("style");st.textContent=".aud{background:#fff6ee;border:1px solid #f3c9a6;border-radius:6px;padding:8px 12px;margin:10px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.aud .an{font-weight:600;color:#c4642a}.aud .model{flex-basis:100%}.o6{display:grid;grid-template-columns:80px 1fr 70px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f2}.w6{font-weight:600}.giv{display:inline-block;width:40px;text-align:center;border:1.5px solid #c4642a;border-radius:4px;color:#c4642a}";document.head.appendChild(st);
 start();
-</script></body></html>
+</script><script src="https://villevian.github.io/bp-admin/vocab-kit.js" defer></script></body></html>
